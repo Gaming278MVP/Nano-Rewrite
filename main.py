@@ -4,7 +4,8 @@ import config
 
 startup_extensions = [
     'listener.general_commands',
-    'listener.image_commands'
+    'listener.image_commands',
+    'listener.music_commands'
 ]
 
 client = Client(command_prefix='do.')
