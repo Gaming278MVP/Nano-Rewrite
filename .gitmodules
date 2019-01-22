@@ -1,0 +1,6 @@
+[submodule "nineapi"]
+	path = listener/core/nineapi
+	url = https://github.com/and3rson/nineapi.git
+[submodule "ytpy"]
+	path = listener/core/ytpy
+	url = https://github.com/MadeYoga/ytpy.git
