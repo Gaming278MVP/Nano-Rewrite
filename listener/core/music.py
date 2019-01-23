@@ -45,3 +45,22 @@ class YTDLSource(discord.PCMVolumeTransformer):
 
         filename = data['url'] if stream else ytdl.prepare_filename(data)
         return cls(discord.FFmpegPCMAudio(filename, **ffmpeg_options), data=data)
+
+class GuildVoiceState:
+    def __init__(self, client):
+        self.client = client
+        self.current = None
+        self.voice_client = None
+        self.queue = [] # list of players
+        self.volume = 0.25
+        self.search_result = None
+        self.channel = None
+
+    def next(self):
+        if self.queue != []:
+            player = self.queue.pop(0)
+            self.voice_client.play(player, after=lambda e: print('Player error: %s' % e) if e else self.next())
+            self.voice_client.source.volume = self.volume
+            self.current = player
+        else:
+            self.voice_client.disconnect()
