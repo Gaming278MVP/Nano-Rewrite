@@ -1,6 +1,6 @@
 import discord
 from listener.core.client import NanoClient as Client
-import config
+from listener.core import config
 
 startup_extensions = [
     'listener.general_commands',
