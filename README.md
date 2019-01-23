@@ -8,11 +8,11 @@ to Discordpy [rewrite branch](https://github.com/Rapptz/discord.py/tree/rewrite)
 ## To do
 - General
   - Help commands
-  - Beautiful Embed
+  - Rich Embed Content
 - Image
   - ...
 - Music
-  - Beautiful Embed            
+  - Rich Embed Content
 - Moderations
   - Logs
   - Guild's Member/Channel/Category/Role Management
