@@ -62,5 +62,3 @@ class GuildVoiceState:
             self.voice_client.play(player, after=lambda e: print('Player error: %s' % e) if e else self.next())
             self.voice_client.source.volume = self.volume
             self.current = player
-        else:
-            self.voice_client.disconnect()
