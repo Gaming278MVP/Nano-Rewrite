@@ -1,6 +1,8 @@
 import asyncio
 import discord
 import youtube_dl
+from random import shuffle
+from async_timeout import timeout
 
 # Suppress noise about console usage from errors
 youtube_dl.utils.bug_reports_message = lambda: ''
@@ -20,6 +22,7 @@ ytdl_format_options = {
 }
 
 ffmpeg_options = {
+    'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
     'options': '-vn'
 }
 
@@ -52,9 +55,10 @@ class GuildVoiceState:
         self.current = None
         self.voice_client = None
         self.queue = [] # list of players
-        self.volume = 0.25
+        self.volume = 0.1
         self.search_result = None
         self.channel = None
+        self.loop = None
 
     def next(self):
         if self.queue != []:
@@ -62,3 +66,49 @@ class GuildVoiceState:
             self.voice_client.play(player, after=lambda e: print('Player error: %s' % e) if e else self.next())
             self.voice_client.source.volume = self.volume
             self.current = player
+            self.client.loop.create_task(self.notify_np(player=player))
+
+    async def notify_np(self, player):
+        await self.channel.send("Now playing " + player.title)
+        print('done notifying NP: ' + player.title)
+
+class VoiceState:
+    def __init__(self, client):
+        self.client = client
+        self.voice_client = None
+        self.volume = 0.25
+        self.songs = asyncio.Queue()
+        self.asyncio_event = asyncio.Event()
+        self.audio_player = client.loop.create_task(self.audio_player_task())
+
+    async def audio_player_task(self):
+        while True:
+            self.asyncio_event.clear()
+            video = await self.songs.get()
+            print('audio loop after')
+            player = await YTDLSource.from_url(video.url, stream=True)
+            print('audio loop after 2')
+            player.source.volume = self.volume
+            self.voice_client.play(player, loop=self.client.loop, after=self.play_next_song)
+            print('audio loop after 3')
+            # await player.source.channel.send("Now Playing " + player.title)
+            await self.asyncio_event.wait()
+            print('audio loop after 4')
+
+    def play_next_song(self, error=None):
+        fut = asyncio.run_coroutine_threadsafe(self.asyncio_event.set(), self.client.loop)
+        try:
+            fut.result()
+        except:
+            print(error + " error")
+            pass
+
+class VoiceEntry:
+    def __init__(self):
+        self.player = None
+        self.requester = ""
+        self.video = None
+
+class AsyncQueue(asyncio.Queue):
+    def shuffle(self):
+        random.shuffle(self._queue)
