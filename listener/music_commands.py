@@ -5,7 +5,7 @@ import asyncio
 # import youtube_dl
 import discord
 from discord.ext import commands
-from .core.music import YTDLSource, GuildVoiceState
+from .core.music import YTDLSource, GuildVoiceState, VoiceState
 from .core.ytpy.ytpy.youtube import YoutubeService, YoutubeVideo
 
 ys = YoutubeService()
@@ -39,6 +39,7 @@ class Music:
 
         state.voice_client = ctx.voice_client
         state.current = player
+        state.channel = ctx.message.channel
 
         await ctx.send('Now playing: {}'.format(player.title))
 
@@ -46,8 +47,9 @@ class Music:
     async def search_(self, ctx, *args):
         """Search song by keyword"""
 
-        # search keyword
+        # get keyword from args
         keyword = "".join([word+" " for word in args])
+        # search video by keyword
         search_result = ys.search(keyword)
         # build embed
         embed = discord.Embed(
@@ -76,7 +78,7 @@ class Music:
                 return m.channel == request_channel and m.author == request_author
             except:
                 return False
-        msg = await self.bot.wait_for('message', check=check)
+        msg = await self.bot.wait_for('message', check=check, timeout=10.0)
         await request_channel.send('picked_entry_number: {}'.format(msg.content))
         await self.play(ctx=ctx, video=search_result[int(msg.content) - 1])
 
@@ -134,7 +136,7 @@ class Music:
 
         # set certains guild volume
         state = self.get_guild_state(ctx.guild.id)
-        state.volume = float(volume/100)
+        state.volume = float(volume/100.0)
 
         if ctx.voice_client is None:
             return await ctx.send("Not connected to a voice channel.")
