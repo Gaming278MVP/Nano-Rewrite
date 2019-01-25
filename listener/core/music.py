@@ -36,6 +36,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
 
         self.title = data.get('title')
         self.url = data.get('url')
+        self.duration = self.parse_duration(int(data.get('duration')))
 
     @classmethod
     async def from_url(cls, url, *, loop=None, stream=False):
@@ -49,35 +50,91 @@ class YTDLSource(discord.PCMVolumeTransformer):
         filename = data['url'] if stream else ytdl.prepare_filename(data)
         return cls(discord.FFmpegPCMAudio(filename, **ffmpeg_options), data=data)
 
+    @staticmethod
+    def parse_duration(duration: int):
+        minutes, seconds = divmod(duration, 60)
+        hours, minutes = divmod(minutes, 60)
+        days, hours = divmod(hours, 24)
+
+        # Create an actual string
+        duration = []
+        if days > 0:
+            duration.append(f'{days} days')
+        if hours > 0:
+            duration.append(f'{hours} hours')
+        if minutes > 0:
+            duration.append(f'{minutes} minutes')
+        if seconds > 0:
+            duration.append(f'{seconds} seconds')
+
+        return ', '.join(duration)
+
 class GuildVoiceState:
     def __init__(self, client):
         self.client = client
-        self.current = None
+        self.current = None # current voice_entry
         self.voice_client = None
-        self.queue = [] # list of players
+        self.queue = [] # voice entries
         self.volume = 0.1
         self.search_result = None
         self.channel = None
-        self.loop = None
+
+    def get_embedded_np(self):
+        embed = self.current.create_embed()
+        embed.add_field(
+            name='Volume',
+            value=str(self.volume * 100),
+            inline=True
+            )
+        return embed
 
     def next(self):
         if self.queue != []:
-            player = self.queue.pop(0)
-            self.voice_client.play(player, after=lambda e: print('Player error: %s' % e) if e else self.next())
+            next_entry = self.queue.pop(0)
+            self.voice_client.play(next_entry.player, after=lambda e: print('Player error: %s' % e) if e else self.next())
             self.voice_client.source.volume = self.volume
-            self.current = player
-            self.client.loop.create_task(self.notify_np(player=player))
+            self.current = next_entry
+            self.client.loop.create_task(self.notify_np())
 
-    async def notify_np(self, player):
-        await self.channel.send("Now playing " + player.title)
-        print('done notifying NP: ' + player.title)
+    async def notify_np(self):
+        embed = self.get_embedded_np()
+        await self.channel.send(embed=embed)
 
-class VoiceState:
+class VoiceEntry:
+    def __init__(self, player=None, requester="", video=None):
+        self.player = player
+        self.requester = requester
+        self.video = video
+
+    def create_embed(self):
+        embed = discord.Embed(
+            title=':musical_note: Now Playing :musical_note:',
+            colour=discord.Colour(value=11735575).orange()
+            )
+        embed.add_field(
+            name='Song',
+            value='**{}**'.format(self.player.title),
+            inline=False
+            )
+        embed.add_field(
+            name='Requester',
+            value=str(self.requester),
+            inline=True
+            )
+        embed.add_field(
+            name='Duration',
+            value=str(self.player.duration),
+            inline=True
+            )
+        embed.set_thumbnail(url=self.video.thumbnails['high']['url'])
+        return embed
+
+class AsyncVoiceState:
     def __init__(self, client):
         self.client = client
         self.voice_client = None
         self.volume = 0.25
-        self.songs = asyncio.Queue()
+        self.songs = AsyncSongQueue()
         self.asyncio_event = asyncio.Event()
         self.audio_player = client.loop.create_task(self.audio_player_task())
 
@@ -85,15 +142,11 @@ class VoiceState:
         while True:
             self.asyncio_event.clear()
             video = await self.songs.get()
-            print('audio loop after')
             player = await YTDLSource.from_url(video.url, stream=True)
-            print('audio loop after 2')
             player.source.volume = self.volume
             self.voice_client.play(player, loop=self.client.loop, after=self.play_next_song)
-            print('audio loop after 3')
             # await player.source.channel.send("Now Playing " + player.title)
             await self.asyncio_event.wait()
-            print('audio loop after 4')
 
     def play_next_song(self, error=None):
         fut = asyncio.run_coroutine_threadsafe(self.asyncio_event.set(), self.client.loop)
@@ -103,12 +156,6 @@ class VoiceState:
             print(error + " error")
             pass
 
-class VoiceEntry:
-    def __init__(self):
-        self.player = None
-        self.requester = ""
-        self.video = None
-
-class AsyncQueue(asyncio.Queue):
+class AsyncSongQueue(asyncio.Queue):
     def shuffle(self):
         random.shuffle(self._queue)

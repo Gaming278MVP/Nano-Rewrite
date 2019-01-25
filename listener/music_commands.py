@@ -5,7 +5,7 @@ import asyncio
 # import youtube_dl
 import discord
 from discord.ext import commands
-from .core.music import YTDLSource, GuildVoiceState, VoiceState
+from .core.music import YTDLSource, GuildVoiceState, VoiceEntry
 from .core.ytpy.ytpy.youtube import YoutubeService, YoutubeVideo
 
 ys = YoutubeService()
@@ -28,7 +28,12 @@ class Music:
         state = self.get_guild_state(ctx.guild.id)
         if ctx.voice_client.is_playing():
             player = await YTDLSource.from_url(video.url, loop=self.bot.loop, stream=True)
-            state.queue.append(player)
+            entry = VoiceEntry(
+                player = player,
+                requester = ctx.message.author.name,
+                video = video
+                )
+            state.queue.append(entry)
             await ctx.send('Enqueued ' + player.title)
             return
 
@@ -37,11 +42,16 @@ class Music:
             ctx.voice_client.play(player, after=lambda e: print('Player error: %s' % e) if e else state.next())
             ctx.voice_client.source.volume = state.volume
 
+        entry = VoiceEntry(
+            player = player,
+            requester = ctx.message.author.name,
+            video = video
+            )
+        state.current = entry
         state.voice_client = ctx.voice_client
-        state.current = player
         state.channel = ctx.message.channel
 
-        await ctx.send('Now playing: {}'.format(player.title))
+        await ctx.send(embed=state.get_embedded_np())
 
     @commands.command(name='search', aliases=['s', 'Search', 'SEARCH'])
     async def search_(self, ctx, *args):
@@ -67,6 +77,7 @@ class Music:
             inline=False
             )
         embed.set_thumbnail(url=search_result[0].thumbnails['high']['url'])
+        embed.set_footer(text='Song selection | Type the entry number to continue')
         await ctx.send(embed=embed)
 
         # wait for author response
@@ -79,7 +90,7 @@ class Music:
             except:
                 return False
         msg = await self.bot.wait_for('message', check=check, timeout=10.0)
-        await request_channel.send('picked_entry_number: {}'.format(msg.content))
+        # await request_channel.send('picked_entry_number: {}'.format(msg.content))
         await self.play(ctx=ctx, video=search_result[int(msg.content) - 1])
 
     @commands.command()
@@ -166,8 +177,9 @@ class Music:
         """Gets current playing song information"""
 
         state = self.get_guild_state(ctx.guild.id)
-        np = "Now Playing {}".format(state.current.title)
-        await ctx.send(np)
+        embed = state.get_embedded_np()
+        # np = "Now Playing {}".format(state.current.title)
+        await ctx.send(embed=embed)
 
     @play_.before_invoke
     @yt.before_invoke
