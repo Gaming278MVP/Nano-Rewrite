@@ -41,6 +41,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
     @classmethod
     async def from_url(cls, url, *, loop=None, stream=False):
         loop = loop or asyncio.get_event_loop()
+        # gonna change this later
         data = await loop.run_in_executor(None, lambda: ytdl.extract_info(url, download=not stream))
 
         if 'entries' in data:
@@ -93,11 +94,21 @@ class GuildVoiceState:
             next_entry = self.queue.pop(0)
             self.voice_client.play(next_entry.player, after=lambda e: print('Player error: %s' % e) if e else self.next())
             self.voice_client.source.volume = self.volume
-            self.current = next_entry
+            self.current = next_entry 
             self.client.loop.create_task(self.notify_np())
+        else: # when theres no song to play.. disconnect from voice channel
+            self.client.loop.create_task(self.done_playing())
 
     async def notify_np(self):
         embed = self.get_embedded_np()
+        await self.channel.send(embed=embed)
+
+    async def done_playing(self):
+        await self.voice_client.disconnect()
+        embed = discord.Embed(
+            title="Done playing music, leaving the voice channel ~",
+            colour=discord.Colour(value=11735575).orange()
+            )
         await self.channel.send(embed=embed)
 
 class VoiceEntry:

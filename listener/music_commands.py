@@ -128,9 +128,15 @@ class Music:
 
         state = self.get_guild_state(ctx.guild.id)
         if ctx.voice_client.is_playing():
-            # add song to queue
-            state.queue.append(url)
-            await ctx.send(state.queue)
+            player = await YTDLSource.from_url(url, loop=self.bot.loop, stream=True)
+            video = ys.search(url)[0]
+            entry = VoiceEntry(
+                player = player,
+                requester = ctx.message.author.name,
+                video = video
+                )
+            state.queue.append(entry)
+            await ctx.send('Enqueued ' + player.title)
             return
 
         async with ctx.typing():
@@ -202,4 +208,4 @@ class Music:
 
 def setup(bot):
     bot.add_cog(Music(bot))
-    print('Music is loaded')
+    print('MusicListener is loaded')
