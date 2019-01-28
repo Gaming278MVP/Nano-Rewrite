@@ -53,32 +53,72 @@ class Music:
 
         await ctx.send(embed=state.get_embedded_np())
 
-    @commands.command(name='search', aliases=['s', 'Search', 'SEARCH'])
+    async def handle_url(self, ctx, url):
+        """Handle input url, play from given url"""
+        try:
+            player = await YTDLSource.from_url(
+                url,
+                loop=self.bot.loop,
+                stream=True
+                )
+        except:
+            await ctx.send(':x: | Cannot extract data from given url, make sure it is a valid url.')
+            return
+        entry = VoiceEntry(
+            player = player,
+            requester = ctx.message.author.name,
+            video = None
+            )
+
+        state = self.get_guild_state(ctx.guild.id)
+        if ctx.voice_client.is_playing():
+            state.queue.append(entry)
+            await ctx.send(embed=state.get_embedded_np())
+            return
+
+        async with ctx.typing():
+            ctx.voice_client.play(player, after=lambda e: print('Player error: %s' % e) if e else None)
+
+        state.voice_client = ctx.voice_client
+        state.current = entry
+        await ctx.send(embed=state.get_embedded_np())
+        return
+
+    @commands.command(name='search', aliases=['s', 'Search', 'SEARCH', 'play', 'p'])
     async def search_(self, ctx, *args):
-        """Search song by keyword"""
+        """Search song by keyword and do start song selection"""
 
         # get keyword from args
         keyword = "".join([word+" " for word in args])
+
+        # check if inpuy keyword is url
+        if 'www' in keyword or 'youtu' in keyword:
+            # handle url
+            await self.handle_url(ctx, keyword)
+            return
+
         # search video by keyword
         search_result = ys.search(keyword)
+
         # build embed
         embed = discord.Embed(
-            title='Search Keyword: ' + keyword,
+            title='Song Selection | Answer the song number to continue',
             description='prefix: do. | search_limit: 7',
             color=discord.Colour(value=11735575).orange()
             )
+
+        # Converts search_result into a string
+        song_list = "".join(["{}. **[{}]({})**\n".format(i + 1, video.title, video.url) for i, video in enumerate(search_result)])
+
         # fill embed
-        song_list = ""
-        for i, video in enumerate(search_result):
-            song_list += "{}. **[{}]({})**\n".format(i + 1, video.title, video.url)
         embed.add_field(
-            name='search result',
+            name='search result for ' + keyword,
             value=song_list,
             inline=False
             )
         embed.set_thumbnail(url=search_result[0].thumbnails['high']['url'])
         embed.set_footer(text='Song selection | Type the entry number to continue')
-        await ctx.send(embed=embed)
+        embedded_list = await ctx.send(embed=embed)
 
         # wait for author response
         request_channel = ctx.message.channel
@@ -89,7 +129,12 @@ class Music:
                 return m.channel == request_channel and m.author == request_author
             except:
                 return False
-        msg = await self.bot.wait_for('message', check=check, timeout=10.0)
+        try:
+            msg = await self.bot.wait_for('message', check=check, timeout=10.0)
+        except:
+            # TIMEOUT ERROR EXCEPTION
+            await embedded_list.delete()
+            return
         # await request_channel.send('picked_entry_number: {}'.format(msg.content))
         await self.play(ctx=ctx, video=search_result[int(msg.content) - 1])
 
