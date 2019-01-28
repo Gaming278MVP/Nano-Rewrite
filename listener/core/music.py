@@ -37,6 +37,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
         self.title = data.get('title')
         self.url = data.get('url')
         self.duration = self.parse_duration(int(data.get('duration')))
+        self.thumbnail = data.get('thumbnail')
 
     @classmethod
     async def from_url(cls, url, *, loop=None, stream=False):
@@ -94,7 +95,7 @@ class GuildVoiceState:
             next_entry = self.queue.pop(0)
             self.voice_client.play(next_entry.player, after=lambda e: print('Player error: %s' % e) if e else self.next())
             self.voice_client.source.volume = self.volume
-            self.current = next_entry 
+            self.current = next_entry
             self.client.loop.create_task(self.notify_np())
         else: # when theres no song to play.. disconnect from voice channel
             self.client.loop.create_task(self.done_playing())
@@ -137,7 +138,10 @@ class VoiceEntry:
             value=str(self.player.duration),
             inline=True
             )
-        embed.set_thumbnail(url=self.video.thumbnails['high']['url'])
+        if not self.video is None:
+            embed.set_thumbnail(url=self.video.thumbnails['high']['url'])
+        else:
+            embed.set_thumbnail(url=self.player.thumbnail)
         return embed
 
 class AsyncVoiceState:
