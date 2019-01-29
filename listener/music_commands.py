@@ -73,11 +73,11 @@ class Music:
         state = self.get_guild_state(ctx.guild.id)
         if ctx.voice_client.is_playing():
             state.queue.append(entry)
-            await ctx.send(embed=state.get_embedded_np())
+            await ctx.send('Enqueued ' + player.title)
             return
 
         async with ctx.typing():
-            ctx.voice_client.play(player, after=lambda e: print('Player error: %s' % e) if e else None)
+            ctx.voice_client.play(player, after=lambda e: print('Player error: %s' % e) if e else state.next())
 
         state.voice_client = ctx.voice_client
         state.current = entry
