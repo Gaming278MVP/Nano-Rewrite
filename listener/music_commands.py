@@ -25,12 +25,15 @@ class Music:
     async def play(self, ctx, video=None):
         """Plays song from given video"""
 
+        if ctx.voice_client is None:
+            ctx.voice_client.connect()
+
         state = self.get_guild_state(ctx.guild.id)
         if ctx.voice_client.is_playing():
             player = await YTDLSource.from_url(video.url, loop=self.bot.loop, stream=True)
             entry = VoiceEntry(
                 player = player,
-                requester = ctx.message.author.name,
+                requester = ctx.message.author,
                 video = video
                 )
             state.queue.append(entry)
@@ -44,7 +47,7 @@ class Music:
 
         entry = VoiceEntry(
             player = player,
-            requester = ctx.message.author.name,
+            requester = ctx.message.author,
             video = video
             )
         state.current = entry
@@ -67,7 +70,7 @@ class Music:
             return
         entry = VoiceEntry(
             player = player,
-            requester = ctx.message.author.name,
+            requester = ctx.message.author,
             video = None
             )
 
@@ -83,7 +86,7 @@ class Music:
         state.voice_client = ctx.voice_client
         state.current = entry
         state.channel = ctx.message.channel
-        
+
         await ctx.send(embed=state.get_embedded_np())
         return
 
@@ -180,7 +183,7 @@ class Music:
             video = ys.search(url)[0]
             entry = VoiceEntry(
                 player = player,
-                requester = ctx.message.author.name,
+                requester = ctx.message.author,
                 video = video
                 )
             state.queue.append(entry)
@@ -220,9 +223,9 @@ class Music:
     async def summon(self, ctx):
         """Force the bot to join author's voice channel"""
 
-        self.get_guild_state(ctx.guild.id)
+        state = self.get_guild_state(ctx.guild.id)
         if ctx.author.voice:
-            await ctx.author.voice.channel.connect()
+            state.voice_client = await ctx.author.voice.channel.connect()
         else:
             await ctx.send("You are not connected to a voice channel.")
 
@@ -234,6 +237,54 @@ class Music:
         embed = state.get_embedded_np()
         # np = "Now Playing {}".format(state.current.title)
         await ctx.send(embed=embed)
+
+    @commands.command(name='skip')
+    async def skip_(self, ctx):
+        """Vote to skip a song.
+        Requester can automatically skip.
+        3 skip votes are needed to skip the song.
+        """
+
+        # if not connected to voice channel or voice client is not playing any song
+        if ctx.voice_client is None or not ctx.voice_client.is_playing():
+            await ctx.send("Not playing any music.")
+            return
+
+        state = self.get_guild_state(ctx.guild.id)
+        if state.current.requester == ctx.message.author:
+            # do skip song
+            state.voice_client.stop()
+            await ctx.message.add_reaction('⏭')
+            return
+        elif ctx.author.id not in state.skip_votes:
+            # increment voters
+            state.skip_votes.add(ctx.author.id)
+            total_votes = len(state.skip_votes)
+            # check voters
+            if total_votes >= 3:
+                await ctx.message.add_reaction('⏭')
+                state.voice_client.stop()
+            else:
+                await ctx.send("⏭ | Current skip votes **{}/3**".format(total_votes))
+
+    @commands.command(name='pause')
+    async def pause_(self, ctx):
+        """Pause current playing song"""
+
+        state = self.get_guild_state(ctx.guild.id)
+        if state.voice_client is None or not state.voice_client.is_playing():
+            await ctx.send('Not playing any song.')
+        state.voice_client.pause()
+
+    @commands.command(name='resume')
+    async def resume_(self, ctx):
+        """Resumes paused song"""
+
+        state = self.get_guild_state(ctx.guild.id)
+        if state.voice_client is None or state.voice_client.is_playing():
+            await ctx.send('Nothing to resume.')
+        if not state.current is None:
+            state.voice_client.resume()
 
     @play_.before_invoke
     @yt.before_invoke
