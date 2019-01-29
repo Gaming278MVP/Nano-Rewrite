@@ -55,6 +55,7 @@ class Music:
 
     async def handle_url(self, ctx, url):
         """Handle input url, play from given url"""
+
         try:
             player = await YTDLSource.from_url(
                 url,
@@ -81,6 +82,8 @@ class Music:
 
         state.voice_client = ctx.voice_client
         state.current = entry
+        state.channel = ctx.message.channel
+        
         await ctx.send(embed=state.get_embedded_np())
         return
 
