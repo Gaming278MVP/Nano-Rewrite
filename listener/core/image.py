@@ -20,14 +20,29 @@ class Gag:
             )
 
     def get_post_from(self, group_id):
-        post = random.choice(
-            self.gag_client.get_posts(
-                group=group_id,
-                count=50,
-                type_='hot',
-                entry_types=['photo', 'animated']
+        try:
+            post = random.choice(
+                self.gag_client.get_posts(
+                    group=group_id,
+                    count=50,
+                    type_='hot',
+                    entry_types=['photo', 'animated']
+                )
             )
-        )
+        except:
+            # reconnect
+            self.gag_client.log_in(
+                config.GAG_USERNAME,
+                config.GAG_PASSWORD
+                )
+            post = random.choice(
+                self.gag_client.get_posts(
+                    group=group_id,
+                    count=50,
+                    type_='hot',
+                    entry_types=['photo', 'animated']
+                )
+            )
         return post
 
 class Subreddits:
