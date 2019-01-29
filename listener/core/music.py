@@ -80,6 +80,7 @@ class GuildVoiceState:
         self.volume = 0.1
         self.search_result = None
         self.channel = None
+        self.skip_votes = set()
 
     def get_embedded_np(self):
         embed = self.current.create_embed()
@@ -113,7 +114,7 @@ class GuildVoiceState:
         await self.channel.send(embed=embed)
 
 class VoiceEntry:
-    def __init__(self, player=None, requester="", video=None):
+    def __init__(self, player=None, requester=None, video=None):
         self.player = player
         self.requester = requester
         self.video = video
@@ -130,7 +131,7 @@ class VoiceEntry:
             )
         embed.add_field(
             name='Requester',
-            value=str(self.requester),
+            value=str(self.requester.name),
             inline=True
             )
         embed.add_field(
