@@ -82,6 +82,7 @@ class Music:
 
         async with ctx.typing():
             ctx.voice_client.play(player, after=lambda e: print('Player error: %s' % e) if e else state.next())
+            ctx.voice_client.source.volume = state.volume
 
         state.voice_client = ctx.voice_client
         state.current = entry
@@ -108,7 +109,7 @@ class Music:
 
         # build embed
         embed = discord.Embed(
-            title='Song Selection | Answer the song number to continue',
+            title='Song Selection | Reply the song number to continue',
             description='prefix: do. | search_limit: 7',
             color=discord.Colour(value=11735575).orange()
             )
@@ -130,7 +131,7 @@ class Music:
         request_channel = ctx.message.channel
         request_author  = ctx.author
         def check(m):
-            try:
+            try: # '/^*[0-9][0-9 ]*$/'
                 picked_entry_number = int(m.content)
                 return m.channel == request_channel and m.author == request_author
             except:
