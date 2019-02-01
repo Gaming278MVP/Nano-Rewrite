@@ -28,10 +28,11 @@ class AioGithub:
 
     async def search(self, category="repositories", q=""):
         """Search by category & keyword.
+
         More flexible way to search.
-        Category :
-        - repositories, topics, code, commits, issues, users, text match metadata
-        q : keyword
+        params:
+        category -> repositories, topics, code, commits, issues, users
+        q        -> keyword
         """
 
         async with aiohttp.ClientSession() as session:
