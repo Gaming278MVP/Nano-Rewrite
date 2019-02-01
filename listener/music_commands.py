@@ -105,8 +105,7 @@ class Music:
             return
 
         # search video by keyword
-        search_result = ys.search(keyword)
-
+        search_result = await self.bot.loop.run_in_executor(None, lambda: ys.search(keyword))
         # build embed
         embed = discord.Embed(
             title='Song Selection | Reply the song number to continue',
@@ -274,7 +273,9 @@ class Music:
 
         state = self.get_guild_state(ctx.guild.id)
         if state.voice_client is None or not state.voice_client.is_playing():
-            await ctx.send('Not playing any song.')
+            await ctx.send(':x: | Not playing any song.')
+            return
+        await ctx.message.add_reaction('\U000023F8')
         state.voice_client.pause()
 
     @commands.command(name='resume')
@@ -283,8 +284,9 @@ class Music:
 
         state = self.get_guild_state(ctx.guild.id)
         if state.voice_client is None or state.voice_client.is_playing():
-            await ctx.send('Nothing to resume.')
+            await ctx.send(':x: | Nothing to resume.')
         if not state.current is None:
+            await ctx.message.add_reaction('\U000025B6')
             state.voice_client.resume()
 
     @play_.before_invoke
