@@ -17,8 +17,8 @@ class ImageListener:
         embed.set_image(url=post.get_media_url())
         return embed
 
-    def get_embedded_submission(self, subreddit):
-        submission = self.reddit.get_submission(subreddit)
+    async def get_embedded_submission(self, subreddit):
+        submission = await self.client.loop.run_in_executor(None, lambda: self.reddit.get_submission(subreddit))
         embed = discord.Embed(color = discord.Colour(value=11735575).orange())
         embed.set_image(url=submission.url)
         return embed
@@ -46,73 +46,73 @@ class ImageListener:
     @commands.command()
     async def meme(self, ctx):
         await ctx.send(
-            embed=self.get_embedded_submission(subreddits.MEMES)
+            embed=await self.get_embedded_submission(subreddits.MEMES)
             )
 
     @commands.command()
     async def rwtf(self, ctx):
         await ctx.send(
-            embed=self.get_embedded_submission(subreddits.WTF)
+            embed=await self.get_embedded_submission(subreddits.WTF)
             )
 
     @commands.command()
     async def dank(self, ctx):
         await ctx.send(
-            embed=self.get_embedded_submission(subreddits.DANKMEMES)
+            embed=await self.get_embedded_submission(subreddits.DANKMEMES)
             )
 
     @commands.command()
     async def aniwallp(self, ctx):
         await ctx.send(
-            embed=self.get_embedded_submission(subreddits.ANIMEWALLPAPER)
+            embed=await self.get_embedded_submission(subreddits.ANIMEWALLPAPER)
             )
 
     @commands.command()
     async def animeme(self, ctx):
         await ctx.send(
-            embed=self.get_embedded_submission(subreddits.ANIMEMES)
+            embed=await self.get_embedded_submission(subreddits.ANIMEMES)
             )
 
     @commands.command()
     async def waifu(self, ctx):
         await ctx.send(
-            embed=self.get_embedded_submission(subreddits.WAIFU)
+            embed=await self.get_embedded_submission(subreddits.WAIFU)
             )
 
     @commands.command()
     async def fgo(self, ctx):
         await ctx.send(
-            embed=self.get_embedded_submission(subreddits.GRANDORDER)
+            embed=await self.get_embedded_submission(subreddits.GRANDORDER)
             )
 
     @commands.command()
     async def fgoart(self, ctx):
         await ctx.send(
-            embed=self.get_embedded_submission(subreddits.FGOFANART)
+            embed=await self.get_embedded_submission(subreddits.FGOFANART)
             )
 
     @commands.command()
     async def tsun(self, ctx):
         await ctx.send(
-            embed=self.get_embedded_submission(subreddits.TSUNDERES)
+            embed=await self.get_embedded_submission(subreddits.TSUNDERES)
             )
 
     @commands.command()
     async def anime(self, ctx):
         await ctx.send(
-            embed=self.get_embedded_submission(subreddits.ANIME)
+            embed=await self.get_embedded_submission(subreddits.ANIME)
             )
 
     @commands.command()
     async def scathach(self, ctx):
         await ctx.send(
-            embed=self.get_embedded_submission(subreddits.SCATHACH)
+            embed=await self.get_embedded_submission(subreddits.SCATHACH)
             )
 
     @commands.command()
     async def moescape(self, ctx):
         await ctx.send(
-            embed=self.get_embedded_submission(subreddits.MOESCAPE)
+            embed=await self.get_embedded_submission(subreddits.MOESCAPE)
             )
 
 def setup(client):
