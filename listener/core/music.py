@@ -77,7 +77,7 @@ class GuildVoiceState:
         self.current = None # current voice_entry
         self.voice_client = None
         self.queue = [] # voice entries
-        self.volume = 0.1
+        self.volume = 0.25
         self.search_result = None
         self.channel = None
         self.skip_votes = set()
