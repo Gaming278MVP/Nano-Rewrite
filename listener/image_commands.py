@@ -6,18 +6,26 @@ subreddits = Subreddits()
 sections = Sections()
 
 class ImageListener:
+    """Image listener cogs"""
+
     def __init__(self, client):
         self.client = client
         self.reddit = Reddit()
         self.gag    = Gag()
 
     def get_embedded_gag(self, section):
+        """Get 9gag post from given section.
+        Sections : Anime & manga, Kpop, wtf, savage, comic.
+        """
+
         post = self.gag.get_post_from(section)
         embed = discord.Embed(color = discord.Colour(value=11735575).orange())
         embed.set_image(url=post.get_media_url())
         return embed
 
     async def get_embedded_submission(self, subreddit):
+        """Get reddit submission from given subreddit title."""
+
         submission = await self.client.loop.run_in_executor(None, lambda: self.reddit.get_submission(subreddit))
         embed = discord.Embed(color = discord.Colour(value=11735575).orange())
         embed.set_image(url=submission.url)
