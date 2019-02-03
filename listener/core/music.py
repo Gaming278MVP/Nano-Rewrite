@@ -58,18 +58,17 @@ class YTDLSource(discord.PCMVolumeTransformer):
         hours, minutes = divmod(minutes, 60)
         days, hours = divmod(hours, 24)
 
-        # Create an actual string
         duration = []
         if days > 0:
-            duration.append(f'{days} days')
+            duration.append(f'{days}d')
         if hours > 0:
-            duration.append(f'{hours} hours')
+            duration.append(f'{hours}h')
         if minutes > 0:
-            duration.append(f'{minutes} minutes')
+            duration.append(f'{minutes}m')
         if seconds > 0:
-            duration.append(f'{seconds} seconds')
+            duration.append(f'{seconds}s')
 
-        return ', '.join(duration)
+        return ' : '.join(duration)
 
 class GuildVoiceState:
     def __init__(self, client):
@@ -81,8 +80,11 @@ class GuildVoiceState:
         self.search_result = None
         self.channel = None
         self.skip_votes = set()
+        self.repeat = False
 
     def get_embedded_np(self):
+        """Get embbeded 'now playing song'"""
+
         embed = self.current.create_embed()
         embed.add_field(
             name='Volume',
@@ -91,9 +93,97 @@ class GuildVoiceState:
             )
         return embed
 
+    def get_embedded_queue(self):
+        """Get embedded current queue state"""
+
+        if self.channel is None:
+            embed = discord.Embed(
+                title=":x: | Queue is empty.".format(),
+                description='Prefix: do. | max_search_limit: 7',
+                colour=discord.Colour(value=11735575).orange()
+            )
+            return embed
+
+        embed = discord.Embed(
+            title="{}'s voice state".format(self.channel.guild.name),
+            description='Prefix: do. | max_search_limit: 7',
+            colour=discord.Colour(value=11735575).orange()
+        )
+
+        # Queue state info field
+        if self.queue == []:
+            fmt_queue='empty'
+        else:
+            fmt_queue = ''.join(['**{}. {} [{}]**\nRequested by **{}**\n'.format(i + 1, entry.video.title, entry.video.duration, entry.requester) for i, entry in enumerate(self.queue)])
+        embed.add_field(
+            name=':notes: | Queue',
+            value=fmt_queue,
+            inline=False)
+
+        ## Repeat status info field
+        if self.repeat:
+            val_repeat = 'On'
+        else:
+            val_repeat = 'Off'
+        embed.add_field(
+            name=':repeat: | Repeat',
+            value='**{}**'.format(val_repeat),
+            inline=True)
+
+        ## Volumes info field
+        if self.volume > 0.5:
+            fmt_volume = ':loud_sound: | Volume'
+        elif self.volume == 0.0 or self.volume == 0:
+            fmt_volume =  ':speaker: | Volume'
+        else:
+            fmt_volume = ':sound: | Volume'
+        embed.add_field(
+            name=fmt_volume,
+            value='**{}** %'.format(self.volume * 100),
+            inline=True)
+
+        # Now playing info field
+        if self.current != None:
+            fmt_np = '**{}**\nRequested by **{}**'.format(self.current.video.title, self.current.requester)
+        else:
+            fmt_np = 'None'
+        embed.add_field(
+            name=':musical_note: | Now playing',
+            value=fmt_np,
+            inline=False)
+
+        embed.set_thumbnail(url=self.current.player.thumbnail)
+        embed.set_footer(
+            text='{} can skip current song | {}/3 skip votes.'.format(self.current.requester, str(len(self.skip_votes)) )
+            # icon_url=self.client.get_user(self.client.id).avatar_url
+        )
+        return embed
+
     def next(self):
+        """Trigger after client done playing current song.
+        Client get next song to play or if there is no song on queue, client left voice channel.
+        """
+
+        if self.channel is None:
+            return
+
+        if self.repeat:
+            # future = asyncio.run_coroutine_threadsafe(
+            #     self.get_player(url=self.current.video.url),
+            #     self.client.loop
+            #     )
+            # self.current.player = future.result()
+            # self.current.player = None
+            self.queue.append(self.current)
+
+        self.skip_votes.clear()
         if self.queue != []:
             next_entry = self.queue.pop(0)
+            future = asyncio.run_coroutine_threadsafe(
+                self.get_player(url=next_entry.video.url),
+                self.client.loop
+                )
+            next_entry.player = future.result()
             self.voice_client.play(next_entry.player, after=lambda e: print('Player error: %s' % e) if e else self.next())
             self.voice_client.source.volume = self.volume
             self.current = next_entry
@@ -101,11 +191,25 @@ class GuildVoiceState:
         else: # when theres no song to play.. disconnect from voice channel
             self.client.loop.create_task(self.done_playing())
 
+    async def get_player(self, url):
+        player = await YTDLSource.from_url(
+            url,
+            loop=self.client.loop,
+            stream=True
+            )
+        return player
+
     async def notify_np(self):
+        """Notify channel about next song"""
+
         embed = self.get_embedded_np()
         await self.channel.send(embed=embed)
 
     async def done_playing(self):
+        """Trigger when done playing.
+        Client immediately left voice channel after done playing song.
+        """
+
         await self.voice_client.disconnect()
         embed = discord.Embed(
             title="Done playing music, leaving the voice channel ~",
