@@ -30,14 +30,14 @@ class Music:
 
         state = self.get_guild_state(ctx.guild.id)
         if ctx.voice_client.is_playing():
-            player = await YTDLSource.from_url(video.url, loop=self.bot.loop, stream=True)
+            # player = await YTDLSource.from_url(video.url, loop=self.bot.loop, stream=True)
             entry = VoiceEntry(
-                player = player,
+                player = None,
                 requester = ctx.message.author,
                 video = video
                 )
             state.queue.append(entry)
-            await ctx.send('Enqueued ' + player.title)
+            await ctx.send('Enqueued ' + video.title)
             return
 
         async with ctx.typing():
@@ -59,30 +59,33 @@ class Music:
     async def handle_url(self, ctx, url):
         """Handle input url, play from given url"""
 
+        search_result = await self.bot.loop.run_in_executor(None, lambda: ys.search(keyword))
         try:
-            player = await YTDLSource.from_url(
-                url,
-                loop=self.bot.loop,
-                stream=True
-                )
+            search_result[0]
         except:
             await ctx.send(':x: | Cannot extract data from given url, make sure it is a valid url.')
             return
         entry = VoiceEntry(
-            player = player,
+            player = None,
             requester = ctx.message.author,
-            video = None
+            video = search_result[0]
             )
 
         state = self.get_guild_state(ctx.guild.id)
         if ctx.voice_client.is_playing():
             state.queue.append(entry)
-            await ctx.send('Enqueued ' + player.title)
+            await ctx.send('Enqueued ' + entry.video.title)
             return
 
         async with ctx.typing():
+            player = await YTDLSource.from_url(
+                url,
+                loop=self.bot.loop,
+                stream=True
+                )
             ctx.voice_client.play(player, after=lambda e: print('Player error: %s' % e) if e else state.next())
             ctx.voice_client.source.volume = state.volume
+            entry.player = player
 
         state.voice_client = ctx.voice_client
         state.current = entry
@@ -216,6 +219,7 @@ class Music:
     async def stop(self, ctx):
         """Stops and disconnects the bot from voice"""
 
+        self.guild_states[ctx.guild.id].channel = None
         await ctx.voice_client.disconnect()
         del self.guild_states[ctx.guild.id]
 
@@ -288,6 +292,22 @@ class Music:
         if not state.current is None:
             await ctx.message.add_reaction('\U000025B6')
             state.voice_client.resume()
+
+    @commands.command(name='queue', aliases=['q', 'Q', 'Queue'])
+    async def queue_(self, ctx):
+        """Shows current queue state"""
+
+        state = self.get_guild_state(ctx.guild.id)
+        await ctx.send(embed=state.get_embedded_queue())
+
+    @commands.command(name='repeat', aliases=['Repeat', 'loop'])
+    async def repeat_(self, ctx):
+        """Repeat song after done playing or add to queue"""
+
+        state = self.get_guild_state(ctx.guild.id)
+        if state.repeat: state.repeat = False
+        else: state.repeat = True
+        await ctx.message.add_reaction('🔁')
 
     @play_.before_invoke
     @yt.before_invoke
