@@ -29,8 +29,7 @@ class Music:
             ctx.voice_client.connect()
 
         state = self.get_guild_state(ctx.guild.id)
-        if ctx.voice_client.is_playing():
-            # player = await YTDLSource.from_url(video.url, loop=self.bot.loop, stream=True)
+        if ctx.voice_client.is_playing() or state.current is not None:
             entry = VoiceEntry(
                 player = None,
                 requester = ctx.message.author,
@@ -72,7 +71,7 @@ class Music:
             )
 
         state = self.get_guild_state(ctx.guild.id)
-        if ctx.voice_client.is_playing():
+        if ctx.voice_client.is_playing() or state.current is not None:
             state.queue.append(entry)
             await ctx.send('Enqueued ' + entry.video.title)
             return

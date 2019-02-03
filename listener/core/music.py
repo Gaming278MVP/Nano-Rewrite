@@ -168,15 +168,10 @@ class GuildVoiceState:
             return
 
         if self.repeat:
-            # future = asyncio.run_coroutine_threadsafe(
-            #     self.get_player(url=self.current.video.url),
-            #     self.client.loop
-            #     )
-            # self.current.player = future.result()
-            # self.current.player = None
             self.queue.append(self.current)
 
         self.skip_votes.clear()
+        
         if self.queue != []:
             next_entry = self.queue.pop(0)
             future = asyncio.run_coroutine_threadsafe(
@@ -265,7 +260,6 @@ class AsyncVoiceState:
             player = await YTDLSource.from_url(video.url, stream=True)
             player.source.volume = self.volume
             self.voice_client.play(player, loop=self.client.loop, after=self.play_next_song)
-            # await player.source.channel.send("Now Playing " + player.title)
             await self.asyncio_event.wait()
 
     def play_next_song(self, error=None):
