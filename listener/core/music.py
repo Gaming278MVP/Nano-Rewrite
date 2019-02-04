@@ -71,7 +71,15 @@ class YTDLSource(discord.PCMVolumeTransformer):
         return ' : '.join(duration)
 
 class GuildVoiceState:
+    """Guild voice channel state."""
+
     def __init__(self, client):
+        """Represents every guild state.
+
+        Every guild have their own: client, now_playing song, voice client,
+        song queue, volume, search result, channel, skip votes, repeat status.
+        """
+
         self.client = client
         self.current = None # current voice_entry
         self.voice_client = None
@@ -81,6 +89,7 @@ class GuildVoiceState:
         self.channel = None
         self.skip_votes = set()
         self.repeat = False
+        self.waiting = None
 
     def get_embedded_np(self):
         """Get embbeded 'now playing song'"""
@@ -162,16 +171,38 @@ class GuildVoiceState:
     def next(self):
         """Trigger after client done playing current song.
         Client get next song to play or if there is no song on queue, client left voice channel.
+
+        State1:
+        if theres no any other user (not bot) in voice channel, client leave voice channel.
+
+        State2:
+        if queue is empty or theres no next song to play, client leave voice channel.
+
+        State3:
+        else, play next song.
         """
 
         if self.channel is None:
+            return
+
+        # check if theres any hooman in voice channel.
+        found=False
+        for member in self.voice_client.channel.members:
+            # found hooman.
+            if not member.bot:
+                found = True
+                break
+        # if hooman not found.
+        if not found:
+            self.skip_votes.clear()
+            self.client.loop.create_task(self.done_playing())
             return
 
         if self.repeat:
             self.queue.append(self.current)
 
         self.skip_votes.clear()
-        
+
         if self.queue != []:
             next_entry = self.queue.pop(0)
             future = asyncio.run_coroutine_threadsafe(
@@ -187,6 +218,8 @@ class GuildVoiceState:
             self.client.loop.create_task(self.done_playing())
 
     async def get_player(self, url):
+        """Get player from given url."""
+
         player = await YTDLSource.from_url(
             url,
             loop=self.client.loop,
@@ -207,18 +240,43 @@ class GuildVoiceState:
 
         await self.voice_client.disconnect()
         embed = discord.Embed(
-            title="Done playing music, leaving the voice channel ~",
+            title="Done playing music.",
             colour=discord.Colour(value=11735575).orange()
             )
-        await self.channel.send(embed=embed)
+        await self.channel.send(embed=embed, delete_after=15)
+
+        self.current = None
+        self.queue = []
+
+    async def await_for_member(self):
+        """Awaiting for any member to join voice channel."""
+
+        await asyncio.sleep(10) # 300
+        # if theres no member joins after 5 minutes awaiting
+        await self.channel.send(":x: | Left voice channel after 5 minutes afk.", delete_after=15)
+        self.channel = None
+        self.current = None
+        self.queue = []
+        await self.voice_client.disconnect()
 
 class VoiceEntry:
+    """Entities represents a requested song."""
+
     def __init__(self, player=None, requester=None, video=None):
+        """Attributes.
+
+        player: downloaded instance data to play the song.
+        requester: user that requested the song.
+        video: youtube video details.
+        """
+
         self.player = player
         self.requester = requester
         self.video = video
 
     def create_embed(self):
+        """Embed for now_playing command."""
+
         embed = discord.Embed(
             title=':musical_note: Now Playing :musical_note:',
             colour=discord.Colour(value=11735575).orange()
@@ -245,6 +303,8 @@ class VoiceEntry:
         return embed
 
 class AsyncVoiceState:
+    """Guild voice channel state that implements asynchronous loop for the audio player task."""
+
     def __init__(self, client):
         self.client = client
         self.voice_client = None

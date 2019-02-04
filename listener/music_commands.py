@@ -2,6 +2,7 @@ import logging
 logging.getLogger('googleapiclient.discovery_cache').setLevel(logging.ERROR)
 
 import asyncio
+from async_timeout import timeout
 # import youtube_dl
 import discord
 from discord.ext import commands
@@ -21,6 +22,39 @@ class Music:
         if not guild_id in self.guild_states:
             self.guild_states[guild_id] = GuildVoiceState(client=self.bot)
         return self.guild_states[guild_id]
+
+    # async def on_voice_state_update(self, member, before, after):
+    #     """Listener for when guild member updates their voice state.
+    #     For memory efficiency.
+    #     State 1:
+    #     If member leave voice channel and then client is the only 1 at voice channel
+    #     Then pause, countdown to leave voice channel if theres no one comin to the voice channel.
+    #
+    #     State 2:
+    #     Else if someone join before countdown finished
+    #     Then resumes.
+    #     """
+    #
+    #     if member.bot:
+    #         return
+    #
+    #     state = self.get_guild_state(member.guild.id)
+    #     if state.current is None or state.channel is None:
+    #         return
+    #
+    #     # theres no one else except client in voice channel.
+    #     if len(state.voice_client.channel.members) <= 1:
+    #         if state.voice_client.is_playing():
+    #             state.voice_client.pause()
+    #             await state.channel.send(':pause_button: | Awaiting for any member to join.')
+    #             state.waiting = asyncio.ensure_future(state.await_for_member())
+    #     else:
+    #         # if someone joins and client at awaiting state.
+    #         if not state.voice_client.is_playing():
+    #             state.voice_client.resume()
+    #             await state.channel.send(':arrow_forward: | Continue playing song.')
+    #             state.waiting.cancel()
+    #             state.waiting = None
 
     async def play(self, ctx, video=None):
         """Plays song from given video"""
@@ -224,19 +258,25 @@ class Music:
 
     @commands.command()
     async def summon(self, ctx):
-        """Force the bot to join author's voice channel"""
+        """Force the bot to join author's voice channel
+        Ensured voice before invoke summon.
+        """
 
-        state = self.get_guild_state(ctx.guild.id)
-        if ctx.author.voice:
-            state.voice_client = await ctx.author.voice.channel.connect()
-        else:
-            await ctx.send("You are not connected to a voice channel.")
+        return
+        # state = self.get_guild_state(ctx.guild.id)
+        # if ctx.author.voice:
+        #     state.voice_client = await ctx.author.voice.channel.connect()
+        # else:
+        #     await ctx.send("You are not connected to a voice channel.")
 
     @commands.command(name='np', aliases=['now_play', 'nowplay', 'now_playing'])
     async def now_playing_(self, ctx):
         """Gets current playing song information"""
 
         state = self.get_guild_state(ctx.guild.id)
+        if state.current is None:
+            await ctx.send(':x: | Not playing anything.')
+            return
         embed = state.get_embedded_np()
         # np = "Now Playing {}".format(state.current.title)
         await ctx.send(embed=embed)
@@ -286,8 +326,10 @@ class Music:
         """Resumes paused song"""
 
         state = self.get_guild_state(ctx.guild.id)
+        # check if theres any paused song.
         if state.voice_client is None or state.voice_client.is_playing():
             await ctx.send(':x: | Nothing to resume.')
+        # check if theres any song to resume.
         if not state.current is None:
             await ctx.message.add_reaction('\U000025B6')
             state.voice_client.resume()
@@ -312,8 +354,15 @@ class Music:
     @yt.before_invoke
     @stream.before_invoke
     @search_.before_invoke
+    @repeat_.before_invoke
+    @resume_.before_invoke
+    @pause_.before_invoke
+    @queue_.before_invoke
+    @stop.before_invoke
+    @skip_.before_invoke
+    @summon.before_invoke
     async def ensure_voice(self, ctx):
-        """Do this before do play/yt/stream/search commands"""
+        """Do this before invoke commands"""
 
         self.get_guild_state(ctx.guild.id)
         # check author voice state
@@ -323,9 +372,9 @@ class Music:
             else:
                 await ctx.send("You are not connected to a voice channel.")
                 raise commands.CommandError("Author not connected to a voice channel.")
-        # elif ctx.voice_client.is_playing(): # optional
-            # add to queue here
-            # ctx.voice_client.stop()
+        elif ctx.author.voice is None:
+            await ctx.send("You are not connected to a voice channel.")
+            raise commands.CommandError("Author not connected to a voice channel.")
 
 def setup(bot):
     bot.add_cog(Music(bot))
